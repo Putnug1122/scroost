@@ -9,4 +9,16 @@ pub fn cli() -> Command {
                 .default_value("Samsung")
                 .action(ArgAction::Set),
         )
+        // Number of pages argument
+        .arg(
+            arg!(-p --page <VALUE>)
+                .default_value("1")
+                .action(ArgAction::Set),
+        )
+        // Output format argument
+        .arg(
+            arg!(-f --format <VALUE>)
+                .default_value("json")
+                .action(ArgAction::Set),
+        )
 }

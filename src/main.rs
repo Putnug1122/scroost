@@ -10,11 +10,21 @@ mod product_scraper;
 async fn main() {
     let cli = cli().get_matches();
     let query = cli.get_one::<String>("query").expect("required");
+    let page = cli.get_one::<String>("page").expect("required");
+    let format = cli.get_one::<String>("format").expect("required");
 
-    match scrape_product(&query).await {
-        Ok(tokopedia_product) => {
-            write_json(tokopedia_product);
-        }
+    // change page to u32
+    let page: u32 = page.parse().unwrap();
+
+    match scrape_product(&query, &page).await {
+        Ok(tokopedia_product) => match format.as_str() {
+            "json" => {
+                write_json(tokopedia_product);
+            }
+            _ => {
+                eprintln!("Invalid format");
+            }
+        },
 
         Err(err) => {
             eprintln!("Error: {:?}", err);

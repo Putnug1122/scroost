@@ -1,10 +1,14 @@
 use std::error::Error;
 
 use headless_chrome::Browser;
+use indicatif::{ProgressBar, ProgressStyle};
 
 use crate::product::TokopediaProduct;
 
-pub async fn scrape_product(query: &str) -> Result<Vec<TokopediaProduct>, Box<dyn Error>> {
+pub async fn scrape_product(
+    query: &str,
+    npage: &u32,
+) -> Result<Vec<TokopediaProduct>, Box<dyn Error>> {
     let mut tokopedia_products: Vec<TokopediaProduct> = Vec::new();
 
     let browser = Browser::default()?;
@@ -13,63 +17,76 @@ pub async fn scrape_product(query: &str) -> Result<Vec<TokopediaProduct>, Box<dy
     tab.set_user_agent(user_agent, None, None)
         .expect("Unable to set user agent");
 
-    let url = format!("https://www.tokopedia.com/search?st=&q={query}");
-    tab.navigate_to(&url).unwrap();
-    tab.wait_until_navigated().expect("Page failed to loaded");
+    let pb = ProgressBar::new(*npage as u64);
+    pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})")
+        .unwrap()
+        .progress_chars("#>-"));
 
-    let products = tab.wait_for_elements("div[data-testid=master-product-card]")?;
+    for page in 1..=*npage {
+        let url = format!(
+            "https://www.tokopedia.com/search?st=&q={query}&page={page}",
+            query = query,
+            page = page
+        );
+        tab.navigate_to(&url).unwrap();
+        tab.wait_until_navigated().expect("Page failed to loaded");
 
-    for product in products {
-        let html_product = scraper::Html::parse_document(&product.get_content().unwrap());
+        let products = tab.wait_for_elements("div[data-testid=master-product-card]")?;
 
-        let product_name = html_product
-            .select(&scraper::Selector::parse(".prd_link-product-name").unwrap())
-            .next()
-            .map(|store| store.text().collect::<String>());
+        for product in products {
+            let html_product = scraper::Html::parse_document(&product.get_content().unwrap());
 
-        let rating = html_product
-            .select(&scraper::Selector::parse(".prd_rating-average-text").unwrap())
-            .next()
-            .map(|store| store.text().collect::<String>());
+            let product_name = html_product
+                .select(&scraper::Selector::parse(".prd_link-product-name").unwrap())
+                .next()
+                .map(|store| store.text().collect::<String>());
 
-        let store_name = html_product
-            .select(&scraper::Selector::parse(".prd_link-shop-name").unwrap())
-            .next()
-            .map(|store| store.text().collect::<String>());
+            let rating = html_product
+                .select(&scraper::Selector::parse(".prd_rating-average-text").unwrap())
+                .next()
+                .map(|store| store.text().collect::<String>());
 
-        let store_location = html_product
-            .select(&scraper::Selector::parse(".prd_link-shop-loc").unwrap())
-            .next()
-            .map(|store| store.text().collect::<String>());
+            let store_name = html_product
+                .select(&scraper::Selector::parse(".prd_link-shop-name").unwrap())
+                .next()
+                .map(|store| store.text().collect::<String>());
 
-        let purchase_amount = html_product
-            .select(&scraper::Selector::parse(".prd_label-integrity").unwrap())
-            .next()
-            .map(|store| store.text().collect::<String>());
+            let store_location = html_product
+                .select(&scraper::Selector::parse(".prd_link-shop-loc").unwrap())
+                .next()
+                .map(|store| store.text().collect::<String>());
 
-        let discount_info = html_product
-            .select(&scraper::Selector::parse(".prd_badge-product-discount").unwrap())
-            .next()
-            .map(|store| store.text().collect::<String>());
+            let purchase_amount = html_product
+                .select(&scraper::Selector::parse(".prd_label-integrity").unwrap())
+                .next()
+                .map(|store| store.text().collect::<String>());
 
-        let product_image_url = html_product
-            .select(&scraper::Selector::parse("img[data-testid=imgSRPProdMain]").unwrap())
-            .next()
-            .and_then(|img| img.value().attr("src"))
-            .map(str::to_owned);
+            let discount_info = html_product
+                .select(&scraper::Selector::parse(".prd_badge-product-discount").unwrap())
+                .next()
+                .map(|store| store.text().collect::<String>());
 
-        let tokopedia_product = TokopediaProduct {
-            product_name,
-            rating,
-            store_name,
-            store_location,
-            purchase_amount,
-            discount_info,
-            product_image_url,
-        };
+            let product_image_url = html_product
+                .select(&scraper::Selector::parse("img[data-testid=imgSRPProdMain]").unwrap())
+                .next()
+                .and_then(|img| img.value().attr("src"))
+                .map(str::to_owned);
 
-        tokopedia_products.push(tokopedia_product)
+            let tokopedia_product = TokopediaProduct {
+                product_name,
+                rating,
+                store_name,
+                store_location,
+                purchase_amount,
+                discount_info,
+                product_image_url,
+            };
+
+            tokopedia_products.push(tokopedia_product)
+        }
+        pb.inc(1);
     }
 
+    pb.finish_with_message("Scraping complete.");
     Ok(tokopedia_products)
 }
