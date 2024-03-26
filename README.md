@@ -13,26 +13,36 @@ To run Scroost, run the following command in your terminal:
 ```bash
 git clone https://github.com/putnug1122/scroost
 ```
+
 2. Change directory to the project folder:
+
 ```bash
 cd scroost
 ```
+
 3. Build and install the CLI app using Cargo:
+
 ```bash
 cargo run -- [OPTIONS]
 
 Options:
   -q, --query        Product keyword [default: Samsung]
+  -p, --page         Number of pages to scrape [default: 1]
+  -f, --format       Output format [default: json]
   -h, --help         Display this help message
   -v, --version      Display version information
 ```
 
 ## Example
+
 ### Command
+
 ```bash
 cargo run -- -q iphone
 ```
+
 ### Output (products.json)
+
 ```json
 [
   {
